@@ -1,0 +1,17 @@
+{
+    "__comment": "Specify y0 in ft., launch_angle in degrees, and velocity in mph,  The first number is the minimum value, the second is the max value and the third is the step",
+    "GRID_SPEC":[
+        {
+            "name": "y0",           
+            "spec": [4 , 7  , 0.2]
+        },
+        {
+            "name": "launch_angle",
+            "spec":    [-2, 2.4  , 0.2]
+        },
+        {
+            "name": "v0", 
+            "spec":    [30, 105, 3]
+        }
+    ]
+}

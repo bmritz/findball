@@ -24,95 +24,126 @@ distances specified in ft. -- will be conveted
 """
 
 import numpy as np 
-from cartesian import cartesian
+import json, argparse, sys, os
+from gen_grid_points import gen_grid_points
 
-FOV = 63.54  #degrees
 
 # rules get all camera positions in a 3-d box on one side of pitcher
 # Box (mesh grid) that the camera will be in
 # distances in ft (will be converted)
 
-Xc_min = -20  # -20
-Xc_max = 80 # 80
-Xc_n = (Xc_max - Xc_min) + 1  # get whole feet
-Xc = np.linspace(Xc_min, Xc_max, Xc_n, dtype='float32')
+# convert your specified ranges to another measurement system (ex. from ft. to meters)
+# set to 0.3048 to specify in ft, but have matrix in meters
+# set to 1 for no conversion
 
-Yc_min = 3
-Yc_max = 5
-Yc_n = (Yc_max - Yc_min) + 1  # get whole feet
-Yc = np.linspace(Yc_min, Yc_max, Yc_n, dtype='float32')
+def get_extrinsic_matrix(C, P):
+    """get the rotation matricies for all points in C looking at all points in P
 
-Zc_min = 50
-Zc_max = 150 # 200
-Zc_n = (Zc_max - Zc_min) + 1  # get whole feet
-Zc = np.linspace(Zc_min, Zc_max, Zc_n, dtype='float32')
+    INPUTS
+    ------
+    C: numpy array of shape (num camera points, 3)
+    P: numpy array of shape (num target points, 3)
 
-points_c = cartesian([Xc, Yc, Zc])
+    OUTPUTS
+    -------
 
-# bounded plane for lookat target point
-Xp_min = -5
-Xp_max = 40 #40
-Xp_n = (Xp_max - Xp_min) + 1   # get whole feet
-Xp = np.linspace(Xp_min, Xp_max, Xp_n, dtype='float32')
+    extrinsic_camera_matrix : numpy array of shape (num target points, num camera points, 3, 3)
 
-Yp_min = -2
-Yp_max = 10  #10
-Yp_n = (Yp_max - Yp_min) + 1   # get whole feet
-Yp = np.linspace(Yp_min, Yp_max, Yp_n, dtype='float32')
+    algorithm for look-at camera rotation matrix
+    1. Compute L = p - C.
+    2. Normalize L.
+    3. Compute s = L x u. (cross product)
+    4. Normalize s.
+    5. Compute u_ = s x L.
+    6. Then Extrinsic rotation matrix given by:
 
-# just looking at x-y axis -- varying z would bring duplication
+            s1,  s2,  s3
+    R =     u_1, u_2, u_3
+            -L1, -L2, -L3
 
-points_p = cartesian([Xp, Yp, np.array([0], dtype='float32')])
+    u is the y-axis -- vary this to get roll
 
-# metric conversion
-m_per_ft = 0.3048
-points_c = points_c * m_per_ft
-points_p = points_p * m_per_ft
+    This takes advantage of broadcasting 
+        -- see https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html
+    """
+    u = np.array([0,1,0], dtype='float32')
 
+    # 1. Compute L = p - C.
+    L = np.stack([p - C for p in P])
 
-"""
-algorithm for look-at camera rotation matrix
-1. Compute L = p - C.
-2. Normalize L.
-3. Compute s = L x u. (cross product)
-4. Normalize s.
-5. Compute u_ = s x L.
-6. Then Extrinsic rotation matrix given by:
+    # 2. Normalize L.
+    norm_L = np.linalg.norm(L, axis=2)
+    L = L / norm_L[:,:, np.newaxis]
 
-        s1,  s2,  s3
-R =     u_1, u_2, u_3
-        -L1, -L2, -L3
+    # 3. Compute s = L x u. (cross product)
+    s = np.cross(L, u)
 
-u is the y-axis -- vary this to get roll
+    # 4. Normalize s. 
+    s = s / np.linalg.norm(s, axis=2)[:,:,np.newaxis]
 
-This takes advantage of broadcasting 
-    -- see https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html
-"""
-u = np.array([0,1,0], dtype='float32')
+    # 5. Compute u' = s x L.
+    u_ = np.cross(s, L)
 
-# 1. Compute L = p - C.
-L = np.stack([p - points_c for p in points_p])
+    # 6
+    # negatives here are correct--but maybe different from what you read because 
+    # we are using different handed coordinates -- see understand 3d projection
+    R = np.stack([-s, u_, L], axis=2)
+    del L
+    del s
+    del u_
 
-# 2. Normalize L.
-norm_L = np.linalg.norm(L, axis=2)
-L = L / norm_L[:,:, np.newaxis]
+    # transformation vector
+    # I CHANGED THIS to conserve memory, concatenate zeros here and set t in immediately,
+    # this prevents us from copying R after t is allocated, and prevents us from having to 
+    # hold R, T, and EX in memory at the same time
 
-# 3. Compute s = L x u. (cross product)
-s = np.cross(L, u)
+    #t = np.zeros(shape=(R.shape[0], ) + C.shape )
+    # EX is the extrinsic matrix
+    EX = np.concatenate([R, np.zeros(shape=R.shape[0:3]+(1,), dtype=R.dtype)], axis=3)
+    del R # R is held in EX already
+    for num_p in range(EX.shape[0]):
+        for num_c in range(EX.shape[1]):
+            #t[num_p,num_c] = -np.dot(R[num_p,num_c], C[num_c])
+            EX[num_p,num_c,:,3] = -np.dot(EX[num_p,num_c,:,0:3], C[num_c])
+    # extrinsic matrix
+    # changed to create above to conserve memory
+    #EX = np.concatenate([R, t[:,:,:,np.newaxis]], axis=3)
 
-# 4. Normalize s. 
-s = s / np.linalg.norm(s, axis=2)[:,:,np.newaxis]
+    return EX
 
-# 5. Compute u' = s x L.
-u_ = np.cross(s, L)
+def gen_C_gen_P(args_c, args_p, dtype="float64", conversion_factor = 1.):
+    """ returns C and P matricies """
 
-# 6
-R = np.stack([s, u_, -L], axis=2)
+    C = gen_grid_points(args_c, dtype=dtype) * conversion_factor
+    P = gen_grid_points(args_p, dtype=dtype) * conversion_factor
+    return C, P
 
-# transformation vector
-t = np.zeros(shape=(R.shape[0], ) + points_c.shape)
-for num_p in range(t.shape[0]):
-    for num_c in range(t.shape[1]):
-        t[num_p,num_c] = np.dot(R[num_p,num_c], points_c[num_c])
+def load_conf(filname):
+    with open(filname, 'r') as fil:
+        conf = json.load(fil)
+        args_c = [
+            (conf["Xc_min"], conf["Xc_max"], conf["Xc_step"]),
+            (conf["Yc_min"], conf["Yc_max"], conf["Yc_step"]),
+            (conf["Zc_min"], conf["Zc_max"], conf["Zc_step"]),
+        ]
 
+        args_p = [
+            (conf["Xp_min"], conf["Xp_max"], conf["Xp_step"]),
+            (conf["Yp_min"], conf["Yp_max"], conf["Yp_step"]),
+            (conf["Zp_min"], conf["Zp_max"], conf["Zp_step"]),
+        ]
+        CONVERSION_FACTOR = conf["CONVERSION_FACTOR"]
+    return args_c,  args_p, CONVERSION_FACTOR
 
+if __name__=="__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config", type=str, help="configuration file")
+    args = parser.parse_args()
+
+    conf_filname = args.config or "config.json"
+    
+    args_c, args_p, CONVERSION_FACTOR = load_conf(conf_filname)
+    C, P = gen_C_gen_P(args_c, args_p, conversion_factor=CONVERSION_FACTOR)
+    EX = get_extrinsic_matrix(C,P)
+    print EX.shape
