@@ -1,8 +1,11 @@
 import numpy as np
+from logutils import setup_logging
 from gen_grid_points import gen_grid_points
 import pandas as pd
 import argparse, json, os, math, logging
-logging.basicConfig()
+
+
+LOG = setup_logging()
 ACCELERATION_DUE_TO_GRAVITY = 9.8
 
 # translate altitude to air density (Taken right from PHet)
@@ -20,7 +23,7 @@ def air_density(altitude=0):
         #upper stratosphere (altitude >= 25000 meters)
         temperature = -131.21 + 0.00299 * altitude
         pressure = 2.488 * math.pow( ( temperature + 273.1 ) / 216.6, -11.388 )
-    
+
     return pressure / ( 0.2869 * ( temperature + 273.1 ) ) 
 
 """Baseball Coefficients:
@@ -54,7 +57,7 @@ class Trajectory(object):
         self.mass = mass
         self.n_runs = self.x0.shape[0]
 
-        print("Trajectory Created with %s pitches to be calculated." % self.n_runs)
+        LOG.info("Trajectory Created with %s pitches to be calculated." % self.n_runs)
 
     def solve_n_steps(self, n, dt, max_bytes=2e+9/8):
         """
@@ -73,15 +76,15 @@ class Trajectory(object):
         # if our number of bytes will be too large, then iterate over chunks
         matrix_size = self.n_runs * n * 8
 
-        print("There are %s entries in the intermediate matrix" % matrix_size)
+        LOG.info("There are %s entries in the intermediate matrix" % matrix_size)
 
         n_chunks = (matrix_size // max_bytes) + int(matrix_size % max_bytes > 1)
-        print("Breaking the calculation into %s chunks" % n_chunks)
+        LOG.info("Breaking the calculation into %s chunks" % n_chunks)
 
         chunk_bounds = np.array([int(x) for x in np.linspace(0, self.n_runs, n_chunks+1)])
-        print("chunk bounds are %s" % str(chunk_bounds))
+        LOG.info("chunk bounds are %s" % str(chunk_bounds))
         # we will insert into and return this solution array
-        self.solution = np.zeros(shape = (self.n_runs, n, 4))
+        self.solution = np.zeros(shape = (self.n_runs, n, 4), dtype = 'float32')
         self.info=np.vstack([self.x0, self.y0, self.launch_angle_deg_t0, self.velocity_t0, 
             np.repeat(self.air_density, self.x0.shape), 
             np.repeat(self.drag_coefficient, self.x0.shape),
@@ -90,8 +93,8 @@ class Trajectory(object):
             np.repeat(dt, self.x0.shape),
             np.repeat(n, self.x0.shape)]).T
         for lbound, ubound in zip(chunk_bounds[:-1], chunk_bounds[1:]):
-            print("now running from %s to %s" % (lbound, ubound))
-            out = np.zeros(shape=(ubound-lbound, n, 8))
+            LOG.info("now running from %s to %s" % (lbound, ubound))
+            out = np.zeros(shape=(ubound-lbound, n, 8), dtype='float32')
             # initalize output array
             #out = np.zeros(shape=(self.n_runs, n, 8))
             #res_time = np.arange(n)*dt
@@ -135,7 +138,7 @@ class Trajectory(object):
                 out[:,t,4] = out[:,p,4] + out[:,p,6] * dt
                 out[:,t,5] = out[:,p,5] + out[:,p,7] * dt
 
-                out[:t,3] =  np.sqrt(out[:,t,4]**2 + out[:,t,5]**2)
+                out[:,t,3] =  np.sqrt(out[:,t,4]**2 + out[:,t,5]**2)
                 dragForceX = 0.5 * self.air_density * self.area * self.drag_coefficient * out[:,p,2] * out[:,p,4]
                 dragForceY = 0.5 * self.air_density * self.area * self.drag_coefficient * out[:,p,2] * out[:,p,5]
                 out[:,t,6] = -dragForceX / self.mass
