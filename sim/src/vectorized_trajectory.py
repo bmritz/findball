@@ -145,6 +145,7 @@ class Trajectory(object):
                 out[:,t,7] = -ACCELERATION_DUE_TO_GRAVITY - dragForceY / self.mass
 
             self.solution[lbound:ubound,:,0:4] = out[:,:,0:4]
+            del out
         return self.solution
         #return np.stack([x, y, v, vx, vy, ax, ay])
 
@@ -212,3 +213,4 @@ if __name__=="__main__":
     traj.solve_n_steps(int(240.*2.5), 1/240.)
     with open(output_filename, "w") as outfile:
         np.savez(outfile, info=traj.info, results=traj.solution)
+    LOG.info("Script Finished")
