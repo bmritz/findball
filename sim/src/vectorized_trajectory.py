@@ -126,6 +126,7 @@ class Trajectory(object):
                 #vx[t] = vx[p] + ax[p] * dt
                 #vy[t] = vy[p] + ay[p] * dt
                 #v[t] = np.sqrt(vx[t]**2 + vy[t]**2)
+
                 #dragForceX = 0.5 * self.air_density * self.area * self.drag_coefficient * v[p] * vx[p]
                 #dragForceY = 0.5 * self.air_density * self.area * self.drag_coefficient * v[p] * vx[p]
                 #ax[t] = -dragForceX / self.mass
@@ -133,6 +134,8 @@ class Trajectory(object):
 
                 out[:,t,4] = out[:,p,4] + out[:,p,6] * dt
                 out[:,t,5] = out[:,p,5] + out[:,p,7] * dt
+
+                out[:t,3] =  np.sqrt(out[:,t,4]**2 + out[:,t,5]**2)
                 dragForceX = 0.5 * self.air_density * self.area * self.drag_coefficient * out[:,p,2] * out[:,p,4]
                 dragForceY = 0.5 * self.air_density * self.area * self.drag_coefficient * out[:,p,2] * out[:,p,5]
                 out[:,t,6] = -dragForceX / self.mass
