@@ -189,11 +189,14 @@ def conditions_from_conf(conf):
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", type=str, help="configuration file")
+
+    parser.add_argument("-o", "--output", type=str, help="output file")
     args = parser.parse_args()
 
     # import config
     conf_filname = args.config or "config_vectorized_trajectory.json"
-    
+    output_filename = args.output or "results.npz"
+
     conf = load_conf(conf_filname)
     print "configuration: %s" % conf
     initial_conditions = conditions_from_conf(conf)
@@ -201,5 +204,5 @@ if __name__=="__main__":
     traj = Trajectory(**initial_conditions)
     attrs = vars(traj)
     traj.solve_n_steps(int(240.*2.5), 1/240.)
-    with open("test.npz", "w") as outfile:
+    with open(output_filename, "w") as outfile:
         np.savez(outfile, info=traj.info, results=traj.solution)
