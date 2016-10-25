@@ -1,7 +1,8 @@
 import numpy as np
 from gen_grid_points import gen_grid_points
-import argparse, json, os, math
-
+import pandas as pd
+import argparse, json, os, math, logging
+logging.basicConfig()
 ACCELERATION_DUE_TO_GRAVITY = 9.8
 
 # translate altitude to air density (Taken right from PHet)
@@ -53,15 +54,10 @@ class Trajectory(object):
         self.mass = mass
         self.n_runs = self.x0.shape[0]
 
-        print self.y0.shape
+        print("Trajectory Created with %s pitches to be calculated." % self.n_runs)
 
-    def solve_n_steps(self, n, dt):
+    def solve_n_steps(self, n, dt, max_bytes=2e+9/8):
         """
-        approx. time:
-        tried on set of 10:
-        ((245 microseconds) / 10) * 1 000 000 000 =
-        6.80555556 hours
-
         returns an array of pitches
 
         so arr[0,:,:] is the data for pitch 0
@@ -74,54 +70,80 @@ class Trajectory(object):
         # axis 1: time
         # axis 2: which pitch
 
-        # initalize output array
-        out = np.zeros(shape=(self.n_runs, n, 8))
-        #res_time = np.arange(n)*dt
-        # set initial conditions for time 0
+        # if our number of bytes will be too large, then iterate over chunks
+        matrix_size = self.n_runs * n * 8
 
-        out[:,:,0] = np.arange(n)*dt
-        out[:,0,1] = self.x0
-        out[:,0,2] = self.y0
-        out[:,0,3] = self.velocity_t0
-        out[:,0,4] = self.x_velocity_t0
-        out[:,0,5] = self.y_velocity_t0
-        out[:,0,6] = self.x_acceleration_t0
-        out[:,0,7] = self.y_acceleration_t0
+        print("There are %s entries in the intermediate matrix" % matrix_size)
 
-        #x = np.vstack([self.x0, np.zeros((n-1, self.x0.shape[0]))])
-        #y = np.vstack([self.y0, np.zeros((n-1, self.y0.shape[0]))])
-        #v = np.vstack([self.velocity_t0, np.zeros((n-1, self.velocity_t0.shape[0]))])
-        #vx = np.vstack([self.x_velocity_t0, np.zeros((n-1, self.x_velocity_t0.shape[0]))])
-        #vy = np.vstack([self.y_velocity_t0, np.zeros((n-1, self.y_velocity_t0.shape[0]))])
-        #ax = np.vstack([self.x_acceleration_t0, np.zeros((n-1, self.x_acceleration_t0.shape[0]))])
-        #ay = np.vstack([self.y_acceleration_t0, np.zeros((n-1, self.y_acceleration_t0.shape[0]))])
+        n_chunks = (matrix_size // max_bytes) + int(matrix_size % max_bytes > 1)
+        print("Breaking the calculation into %s chunks" % n_chunks)
 
-        for t in range(1, n):
-            p = t-1
-            # project new x & ys given previous conditions
-            #x[t] = x[p] + vx[p] * dt + 0.5 * ax[p] * dt * dt
-            #y[t] = y[p] + vy[p] * dt + 0.5 * ay[p] * dt * dt
+        chunk_bounds = np.array([int(x) for x in np.linspace(0, self.n_runs, n_chunks+1)])
+        print("chunk bounds are %s" % str(chunk_bounds))
+        # we will insert into and return this solution array
+        self.solution = np.zeros(shape = (self.n_runs, n, 4))
+        self.info=np.vstack([self.x0, self.y0, self.launch_angle_deg_t0, self.velocity_t0, 
+            np.repeat(self.air_density, self.x0.shape), 
+            np.repeat(self.drag_coefficient, self.x0.shape),
+            np.repeat(self.area, self.x0.shape),
+            np.repeat(self.mass, self.x0.shape),
+            np.repeat(dt, self.x0.shape),
+            np.repeat(n, self.x0.shape)]).T
+        for lbound, ubound in zip(chunk_bounds[:-1], chunk_bounds[1:]):
+            print("now running from %s to %s" % (lbound, ubound))
+            out = np.zeros(shape=(ubound-lbound, n, 8))
+            # initalize output array
+            #out = np.zeros(shape=(self.n_runs, n, 8))
+            #res_time = np.arange(n)*dt
+            # set initial conditions for time 0
 
-            out[:,t,1] = out[:,p,1] + out[:,p,4] * dt + 0.5 * out[:,p,6] * dt * dt
-            out[:,t,2] = out[:,p,2] + out[:,p,5] * dt + 0.5 * out[:,p,7] * dt * dt
-            # new conditions
-            #vx[t] = vx[p] + ax[p] * dt
-            #vy[t] = vy[p] + ay[p] * dt
-            #v[t] = np.sqrt(vx[t]**2 + vy[t]**2)
-            #dragForceX = 0.5 * self.air_density * self.area * self.drag_coefficient * v[p] * vx[p]
-            #dragForceY = 0.5 * self.air_density * self.area * self.drag_coefficient * v[p] * vx[p]
-            #ax[t] = -dragForceX / self.mass
-            #ay[t] = -ACCELERATION_DUE_TO_GRAVITY - dragForceY / self.mass
+            out[:,:,0] = np.arange(n)*dt
+            out[:,0,1] = self.x0[lbound:ubound]
+            out[:,0,2] = self.y0[lbound:ubound]
+            out[:,0,3] = self.velocity_t0[lbound:ubound]
+            out[:,0,4] = self.x_velocity_t0[lbound:ubound]
+            out[:,0,5] = self.y_velocity_t0[lbound:ubound]
+            out[:,0,6] = self.x_acceleration_t0[lbound:ubound]
+            out[:,0,7] = self.y_acceleration_t0[lbound:ubound]
 
-            out[:,t,4] = out[:,p,4] + out[:,p,6] * dt
-            out[:,t,5] = out[:,p,5] + out[:,p,7] * dt
-            dragForceX = 0.5 * self.air_density * self.area * self.drag_coefficient * out[:,p,2] * out[:,p,4]
-            dragForceY = 0.5 * self.air_density * self.area * self.drag_coefficient * out[:,p,2] * out[:,p,5]
-            out[:,t,6] = -dragForceX / self.mass
-            out[:,t,7] = -ACCELERATION_DUE_TO_GRAVITY - dragForceY / self.mass
+            #x = np.vstack([self.x0, np.zeros((n-1, self.x0.shape[0]))])
+            #y = np.vstack([self.y0, np.zeros((n-1, self.y0.shape[0]))])
+            #v = np.vstack([self.velocity_t0, np.zeros((n-1, self.velocity_t0.shape[0]))])
+            #vx = np.vstack([self.x_velocity_t0, np.zeros((n-1, self.x_velocity_t0.shape[0]))])
+            #vy = np.vstack([self.y_velocity_t0, np.zeros((n-1, self.y_velocity_t0.shape[0]))])
+            #ax = np.vstack([self.x_acceleration_t0, np.zeros((n-1, self.x_acceleration_t0.shape[0]))])
+            #ay = np.vstack([self.y_acceleration_t0, np.zeros((n-1, self.y_acceleration_t0.shape[0]))])
 
-        return out
+            for t in range(1, n):
+                p = t-1
+                # project new x & ys given previous conditions
+                #x[t] = x[p] + vx[p] * dt + 0.5 * ax[p] * dt * dt
+                #y[t] = y[p] + vy[p] * dt + 0.5 * ay[p] * dt * dt
+
+                out[:,t,1] = out[:,p,1] + out[:,p,4] * dt + 0.5 * out[:,p,6] * dt * dt
+                out[:,t,2] = out[:,p,2] + out[:,p,5] * dt + 0.5 * out[:,p,7] * dt * dt
+                # new conditions
+                #vx[t] = vx[p] + ax[p] * dt
+                #vy[t] = vy[p] + ay[p] * dt
+                #v[t] = np.sqrt(vx[t]**2 + vy[t]**2)
+                #dragForceX = 0.5 * self.air_density * self.area * self.drag_coefficient * v[p] * vx[p]
+                #dragForceY = 0.5 * self.air_density * self.area * self.drag_coefficient * v[p] * vx[p]
+                #ax[t] = -dragForceX / self.mass
+                #ay[t] = -ACCELERATION_DUE_TO_GRAVITY - dragForceY / self.mass
+
+                out[:,t,4] = out[:,p,4] + out[:,p,6] * dt
+                out[:,t,5] = out[:,p,5] + out[:,p,7] * dt
+                dragForceX = 0.5 * self.air_density * self.area * self.drag_coefficient * out[:,p,2] * out[:,p,4]
+                dragForceY = 0.5 * self.air_density * self.area * self.drag_coefficient * out[:,p,2] * out[:,p,5]
+                out[:,t,6] = -dragForceX / self.mass
+                out[:,t,7] = -ACCELERATION_DUE_TO_GRAVITY - dragForceY / self.mass
+
+            self.solution[lbound:ubound,:,0:4] = out[:,:,0:4]
+        return self.solution
         #return np.stack([x, y, v, vx, vy, ax, ay])
+
+        def dump_result(directory, mode='a'):
+            df = pd.DataFrame(self.solution)
 
 def load_conf(filname):
     with open(filname, 'r') as fil:
@@ -173,14 +195,11 @@ if __name__=="__main__":
     conf_filname = args.config or "config_vectorized_trajectory.json"
     
     conf = load_conf(conf_filname)
-
+    print "configuration: %s" % conf
     initial_conditions = conditions_from_conf(conf)
 
     traj = Trajectory(**initial_conditions)
     attrs = vars(traj)
-    # {'kids': 0, 'name': 'Dog', 'color': 'Spotted', 'age': 10, 'legs': 2, 'smell': 'Alot'}
-    # now dump this in some way or another
-    print ',\n'.join("%s: %s" % item for item in attrs.items())
-    results = traj.solve_n_steps(240*3, 1/240.)
-
-    print results.shape
+    traj.solve_n_steps(int(240.*2.5), 1/240.)
+    with open("test.npz", "w") as outfile:
+        np.savez(outfile, info=traj.info, results=traj.solution)
