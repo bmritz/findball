@@ -26,8 +26,9 @@ distances specified in ft. -- will be conveted
 import numpy as np 
 import json, argparse, sys, os
 from gen_grid_points import gen_grid_points
+from logutils import setup_logging
 
-
+LOG = setup_logging()
 # rules get all camera positions in a 3-d box on one side of pitcher
 # Box (mesh grid) that the camera will be in
 # distances in ft (will be converted)
@@ -119,6 +120,7 @@ def gen_C_gen_P(args_c, args_p, dtype="float64", conversion_factor = 1.):
     return C, P
 
 def load_conf(filname):
+    LOG.info("Loading configuration file: %s" % filname)
     with open(filname, 'r') as fil:
         conf = json.load(fil)
         args_c = [
@@ -144,6 +146,10 @@ if __name__=="__main__":
     conf_filname = args.config or "config.json"
     
     args_c, args_p, CONVERSION_FACTOR = load_conf(conf_filname)
-    C, P = gen_C_gen_P(args_c, args_p, conversion_factor=CONVERSION_FACTOR)
+    C, P = gen_C_gen_P(args_c, args_p, conversion_factor=CONVERSION_FACTOR, dtype="float32")
+
+    LOG.info("Shape of camera matrix %s" % str(C.shape))
+    LOG.info("Shape of target point matrix: %s" % str(P.shape))
+    LOG.info("Creating %s extrinsic matricies." % (C.shape[0]*P.shape[0],))
     EX = get_extrinsic_matrix(C,P)
-    print EX.shape
+    LOG.info("Shape of extrinsic matrix: %s" % str(EX.shape))
