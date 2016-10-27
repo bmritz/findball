@@ -2,24 +2,24 @@
     "CONVERSION_FACTOR":0.3048,
 
     "Xc_min": -20,
-    "Xc_max": 20,
+    "Xc_max": 80,
     "Xc_step": 1,
 
     "Yc_min": 3,
     "Yc_max": 5,
-    "Yc_step": 1,
+    "Yc_step": 0.25,
 
     "Zc_min": 50,
-    "Zc_max": 80,
+    "Zc_max": 220,
     "Zc_step": 1,
 
 
     "Xp_min": -5,
-    "Xp_max": 5,
+    "Xp_max": 30,
     "Xp_step": 1,
 
     "Yp_min": -2,
-    "Yp_max": 2,
+    "Yp_max": 10,
     "Yp_step": 1,
 
     "Zp_min": 0,
