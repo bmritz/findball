@@ -205,7 +205,7 @@ if __name__=="__main__":
     output_filename = args.output or "results.npz"
 
     conf = load_conf(conf_filname)
-    print "configuration: %s" % conf
+    LOG.info("configuration: %s" % conf)
     initial_conditions = conditions_from_conf(conf)
 
     traj = Trajectory(**initial_conditions)
