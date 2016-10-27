@@ -144,6 +144,7 @@ if __name__=="__main__":
     args = parser.parse_args()
 
     conf_filname = args.config or "config.json"
+    output_filename = "extrinsic_matrix.npy"
     
     args_c, args_p, CONVERSION_FACTOR = load_conf(conf_filname)
     C, P = gen_C_gen_P(args_c, args_p, conversion_factor=CONVERSION_FACTOR, dtype="float32")
@@ -153,3 +154,5 @@ if __name__=="__main__":
     LOG.info("Creating %s extrinsic matricies." % (C.shape[0]*P.shape[0],))
     EX = get_extrinsic_matrix(C,P)
     LOG.info("Shape of extrinsic matrix: %s" % str(EX.shape))
+    with open(output_filename, "w") as outfile:
+        np.savez(outfile, extrinsic_matrix = EX, camera_points=C, lookat_points=P)
