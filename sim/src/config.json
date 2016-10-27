@@ -1,20 +1,21 @@
 {
     "CONVERSION_FACTOR":0.3048,
 
-    "Xc_min": -20,
-    "Xc_max": 80,
+    "Xc_min": -10,
+    "Xc_max": 10,
     "Xc_step": 1,
 
     "Yc_min": 3,
-    "Yc_max": 5,
-    "Yc_step": 0.25,
+    "Yc_max": 6.5,
+    "Yc_step": 0.5,
 
-    "Zc_min": 50,
-    "Zc_max": 220,
+    "__comment1": "We say the z axis is negative, beacuse I have aligned all my functions to say that the pitchers left side is the positive Z axis",
+    "Zc_min": -220,
+    "Zc_max": -50,
     "Zc_step": 1,
 
 
-    "Xp_min": -5,
+    "Xp_min": 0,
     "Xp_max": 30,
     "Xp_step": 1,
 
