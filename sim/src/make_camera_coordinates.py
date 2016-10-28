@@ -156,3 +156,5 @@ if __name__=="__main__":
     LOG.info("Shape of extrinsic matrix: %s" % str(EX.shape))
     with open(output_filename, "w") as outfile:
         np.savez(outfile, extrinsic_matrix = EX, camera_points=C, lookat_points=P)
+
+    LOG.info("SCRIPT FINISHED")
