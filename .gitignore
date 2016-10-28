@@ -3,3 +3,7 @@ videos
 *.pyc
 *.png
 *.ipynb_checkpoints/
+*.npx
+*.npy
+*.npz
+*.hdf5
