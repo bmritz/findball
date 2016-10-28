@@ -210,7 +210,7 @@ if __name__=="__main__":
 
     traj = Trajectory(**initial_conditions)
     attrs = vars(traj)
-    traj.solve_n_steps(int(240.*2.5), 1/240.)
+    traj.solve_n_steps(int(240.*1.2), 1/240.)
     with open(output_filename, "w") as outfile:
         np.savez(outfile, info=traj.info, results=traj.solution)
     LOG.info("Script Finished")
