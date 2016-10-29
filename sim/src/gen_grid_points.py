@@ -65,4 +65,4 @@ def gen_grid_points(ranges, **kwargs):
         rng = gen_linspace(tup[0], tup[1], tup[2], **kwargs)
         all_ranges.append(rng)
 
-    return cartesian(all_ranges)
+    return cartesian(all_ranges), all_ranges

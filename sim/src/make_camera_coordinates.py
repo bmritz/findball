@@ -115,9 +115,9 @@ def get_extrinsic_matrix(C, P):
 def gen_C_gen_P(args_c, args_p, dtype="float64", conversion_factor = 1.):
     """ returns C and P matricies """
 
-    C = gen_grid_points(args_c, dtype=dtype) * conversion_factor
-    P = gen_grid_points(args_p, dtype=dtype) * conversion_factor
-    return C, P
+    C, ranges_C = gen_grid_points(args_c, dtype=dtype) * conversion_factor
+    P, ranges_P = gen_grid_points(args_p, dtype=dtype) * conversion_factor
+    return C, P, ranges_C, ranges_P
 
 def load_conf(filname):
     LOG.info("Loading configuration file: %s" % filname)
@@ -147,7 +147,7 @@ if __name__=="__main__":
     output_filename = "extrinsic_matrix.npy"
     
     args_c, args_p, CONVERSION_FACTOR = load_conf(conf_filname)
-    C, P = gen_C_gen_P(args_c, args_p, conversion_factor=CONVERSION_FACTOR, dtype="float32")
+    C, P, ranges_C, ranges_P = gen_C_gen_P(args_c, args_p, conversion_factor=CONVERSION_FACTOR, dtype="float32")
 
     LOG.info("Shape of camera matrix %s" % str(C.shape))
     LOG.info("Shape of target point matrix: %s" % str(P.shape))

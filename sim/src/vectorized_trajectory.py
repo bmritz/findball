@@ -176,7 +176,7 @@ def conditions_from_conf(conf):
         else:
             ranges.append(spec['spec'])
 
-    initial_conditions = gen_grid_points(ranges, dtype='float32')
+    initial_conditions, all_ranges  = gen_grid_points(ranges, dtype='float32')
 
     initial_conditions = dict(zip(names, initial_conditions.T))
     """Baseball Coefficients:
