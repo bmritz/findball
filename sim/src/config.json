@@ -7,7 +7,7 @@
 
     "Yc_min": 4,
     "Yc_max": 6,
-    "Yc_step": 1,
+    "Yc_step": 2,
 
     "__comment1": "We say the z axis is negative, beacuse I have aligned all my functions to say that the pitchers left side is the positive Z axis",
     "Zc_min": -200,
@@ -17,11 +17,11 @@
 
     "Xp_min": 0,
     "Xp_max": 40,
-    "Xp_step": 1,
+    "Xp_step": 20,
 
     "Yp_min": -2,
     "Yp_max": 10,
-    "Yp_step": 2,
+    "Yp_step": 6,
 
     "Zp_min": 0,
     "Zp_max": 0,
