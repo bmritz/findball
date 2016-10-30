@@ -27,6 +27,7 @@ import numpy as np
 import json, argparse, sys, os
 from gen_grid_points import gen_grid_points
 from logutils import setup_logging
+from output_conf import DATA, delete_if_exists
 
 LOG = setup_logging()
 # rules get all camera positions in a 3-d box on one side of pitcher
@@ -48,7 +49,7 @@ def get_extrinsic_matrix(C, P):
     OUTPUTS
     -------
 
-    extrinsic_camera_matrix : numpy array of shape (num target points, num camera points, 3, 3)
+    extrinsic_camera_matrix : numpy array of shape (num target points, num camera points, 3, 4)
 
     algorithm for look-at camera rotation matrix
     1. Compute L = p - C.
@@ -93,7 +94,8 @@ def get_extrinsic_matrix(C, P):
     del s
     del u_
 
-    # transformation vector
+    # transformation vector, multiply the rotation matrix by the transformation vector (C)
+    # to get the transformation vectory, which is the last column of the extrinsic matrix
     # I CHANGED THIS to conserve memory, concatenate zeros here and set t in immediately,
     # this prevents us from copying R after t is allocated, and prevents us from having to 
     # hold R, T, and EX in memory at the same time
@@ -115,8 +117,10 @@ def get_extrinsic_matrix(C, P):
 def gen_C_gen_P(args_c, args_p, dtype="float64", conversion_factor = 1.):
     """ returns C and P matricies """
 
-    C, ranges_C = gen_grid_points(args_c, dtype=dtype) * conversion_factor
-    P, ranges_P = gen_grid_points(args_p, dtype=dtype) * conversion_factor
+    C, ranges_C = gen_grid_points(args_c, dtype=dtype)
+    C = C * conversion_factor
+    P, ranges_P = gen_grid_points(args_p, dtype=dtype)
+    P = P * conversion_factor
     return C, P, ranges_C, ranges_P
 
 def load_conf(filname):
@@ -149,12 +153,31 @@ if __name__=="__main__":
     args_c, args_p, CONVERSION_FACTOR = load_conf(conf_filname)
     C, P, ranges_C, ranges_P = gen_C_gen_P(args_c, args_p, conversion_factor=CONVERSION_FACTOR, dtype="float32")
 
+    ds_name_camera = "camera_points"
+    ds_name_lookat = "lookat_points"
+    delete_if_exists(ds_name_camera)
+    delete_if_exists(ds_name_lookat)
+
+    _ = DATA.create_dataset(ds_name_camera, data=C)
+    _ = DATA.create_dataset(ds_name_lookat, data=P)
+
     LOG.info("Shape of camera matrix %s" % str(C.shape))
     LOG.info("Shape of target point matrix: %s" % str(P.shape))
     LOG.info("Creating %s extrinsic matricies." % (C.shape[0]*P.shape[0],))
+
+    ds_name = "extrinsic_matricies"
+    n_target_points = P.shape[0]
+    n_camera_points = C.shape[0]
     EX = get_extrinsic_matrix(C,P)
     LOG.info("Shape of extrinsic matrix: %s" % str(EX.shape))
-    with open(output_filename, "w") as outfile:
-        np.savez(outfile, extrinsic_matrix = EX, camera_points=C, lookat_points=P)
+
+    delete_if_exists(ds_name)
+    output_dataset = DATA.create_dataset(ds_name, 
+            shape = (n_target_points, n_camera_points, 3, 4),
+            dtype=np.float64, data=EX)
+
+
+    #with open(output_filename, "w") as outfile:
+        #np.savez(outfile, extrinsic_matrix = EX, camera_points=C, lookat_points=P)
 
     LOG.info("SCRIPT FINISHED")
