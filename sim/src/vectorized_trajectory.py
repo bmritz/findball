@@ -100,12 +100,13 @@ class Trajectory(object):
         # axis 2: which pitch
 
         # if our number of bytes will be too large, then iterate over chunks
+        # find the number of entries in the matrix
         matrix_size = self.n_runs * n * 8 
 
         LOG.info("There are %s entries in the solution matrix. It will be %s GB uncompressed." %\
          (matrix_size, matrix_size*self.itemsize*1e-9))
 
-        n_chunks = ((matrix_size * 8) // max_bytes) + int(matrix_size % max_bytes > 1)
+        n_chunks = ((matrix_size * 8) // max_bytes) + int(matrix_size*8 % max_bytes > 1)
         LOG.info("Breaking the calculation into %s chunks" % int(n_chunks))
 
         chunk_bounds = np.array([int(x) for x in np.linspace(0, self.n_runs, n_chunks+1)])
