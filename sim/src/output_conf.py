@@ -1,6 +1,6 @@
 import h5py, logging, os
 
-DATA_FILE = "../data/DATA.hdf5"
+DATA_FILE = os.path.join(os.path.abspath(__file__), "../../data/DATA.hdf5")
 
 HDF5_NAME = os.path.abspath(DATA_FILE)
 
