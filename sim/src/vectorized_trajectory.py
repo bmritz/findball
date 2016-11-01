@@ -1,5 +1,5 @@
 import numpy as np
-from logutils import setup_logging
+from brutils.logutils import setup_logging
 from gen_grid_points import gen_grid_points
 from output_conf import DATA, delete_if_exists
 import pandas as pd

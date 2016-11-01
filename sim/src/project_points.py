@@ -1,5 +1,5 @@
 import numpy as np
-from logutils import setup_logging
+from brutils.logutils import setup_logging
 import h5py
 from output_conf import DATA, delete_if_exists, HDF5_NAME
 

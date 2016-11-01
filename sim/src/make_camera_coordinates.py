@@ -26,7 +26,7 @@ distances specified in ft. -- will be conveted
 import numpy as np 
 import json, argparse, sys, os
 from gen_grid_points import gen_grid_points
-from logutils import setup_logging
+from brutils.logutils import setup_logging
 from output_conf import DATA, delete_if_exists
 
 LOG = setup_logging()
