@@ -1,8 +1,11 @@
 import h5py, logging, os
+from brutils.oututils import ensure_filepath
 
 DATA_FILE = os.path.join(os.path.abspath(__file__), "../../data/DATA.hdf5")
 
 HDF5_NAME = os.path.abspath(DATA_FILE)
+
+ensure_filepath(HDF5_NAME)
 
 DATA = h5py.File(HDF5_NAME)
 
