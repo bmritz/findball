@@ -102,9 +102,9 @@ if __name__ == "__main__":
             # length in terms of percent of screen
             pct_scr = xy / c_dim
 
-            relative_pixels_from_center = (pct_scr * resolution).astype('uint16')
+            relative_pixels_from_center = (pct_scr * resolution)
 
-            final = relative_pixels_from_center + resolution/2
+            final = (relative_pixels_from_center + resolution/2).astype('uint16')
 
             # combine into one
             # dset[lbound_p:ubound_p,lbound_c:ubound_c,:,:] =\
