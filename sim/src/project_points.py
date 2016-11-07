@@ -10,6 +10,9 @@ MAX_GB_RAM = 1.
 f  = 4.11/1000.
 W = 4.8/1000.
 H = 3.6 / 1000.   # http://photoseek.com/2013/compare-digital-camera-sensor-sizes-full-frame-35mm-aps-c-micro-four-thirds-1-inch-type/
+
+W = 1.883 / 1000.
+W = 1.059 / 1000.
 c_dim = np.array([W, H])
 resolution = np.array([1280, 720],dtype='float64')
 
