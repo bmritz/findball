@@ -35,7 +35,7 @@ if __name__ == "__main__":
     n_extrinsic_matricies = n_cam_positions*n_lookat_targets
     n_results = n_pitches*n_frames*n_cam_positions*n_lookat_targets
 
-    output_size_gb = n_results * 2 * 2 * 1e-9
+    output_size_gb = n_results * 3 * 2 * 1e-9
 
     LOG.info("There are %s different pitches" % "{:,}".format(n_pitches))
     LOG.info("There are %s different frames per pitch" % "{:,}".format(n_frames))
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         # prepare output dataset
         delete_if_exists(ds_name)
         dset = DATA.create_dataset(ds_name, 
-            shape = (n_pitches, n_cam_positions, n_lookat_targets, n_frames, 2), 
+            shape = (n_pitches, n_cam_positions, n_lookat_targets, n_frames, 3), 
             dtype=np.uint16)
 
         LOG.info("Dataset %s created in h5file %s. Approximately %s GB." % (ds_name, HDF5_NAME, output_size_gb))
@@ -93,9 +93,11 @@ if __name__ == "__main__":
 
         for lbound_c, ubound_c in zip(chunk_bounds_cam[:-1], chunk_bounds_cam[1:]):
 
+            # this is where the ball is in "camera coordinate system" -- cam at origin & looking down z axis
             # dot product of the pitch point and extrinsic matrix for frame and lookat in the selected cam_pos and pitches
             camera_coordinates = np.tensordot(pitch_points, extrinsic_matrix[:,lbound_c:ubound_c,:,:], axes=([2],[3]))
 
+            distances = np.linalg.norm(camera_coordinates, axis=4, ord=2).astype('uint16')
             # actual length in meters on the camera sensor
             xy = camera_coordinates[:,:,:,:,0:2] * (f / camera_coordinates[:,:,:,:,2, np.newaxis])
 
@@ -112,6 +114,7 @@ if __name__ == "__main__":
             #  / divider).astype('uint16') + (resolution/2)).swapaxes(1,3)
 
 
-            dset[lbound_p:ubound_p,lbound_c:ubound_c,:,:] = final.swapaxes(1,3)
+            dset[lbound_p:ubound_p,lbound_c:ubound_c,:,0:2] = final.swapaxes(1,3)
+            dset[lbound_p:ubound_p,lbound_c:ubound_c,:,2] = distances.swapaxes(1,3)
 
     LOG.info("Script Finished")
