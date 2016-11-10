@@ -11,8 +11,11 @@ f  = 4.11/1000.
 W = 4.8/1000.
 H = 3.6 / 1000.   # http://photoseek.com/2013/compare-digital-camera-sensor-sizes-full-frame-35mm-aps-c-micro-four-thirds-1-inch-type/
 
-W = 1.883 / 1000.
-H = 1.059 / 1000.
+# from video: look at distance_calculation.xlsm 
+f  = 1.92/1000.
+W = 1882.88/1000./1000.  #micrometers
+H = 1059.12 / 1000./1000. #micrometers
+
 c_dim = np.array([W, H])
 resolution = np.array([1280, 720],dtype='float64')
 
