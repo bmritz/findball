@@ -29,12 +29,17 @@ def xy_to_xyz_homogenous(arr):
     to_concat[:,:,1] = 1.
     return np.concatenate([arr, to_concat], axis=arr.ndim-1)
 
+def find_idx(tup1, tup2):
+    res = 0
+    for i, x in enumerate(tup1):
+        res = res + (x * np.product(tup2[i+1:]))
+    return res
 
 if __name__ == "__main__":
 
     extrinsic_matrix = DATA['extrinsic_matricies']
     results = DATA['trajectory_1']['ball_trajectories']
-
+    results_conditions = DATA['trajectory_1']['initial_conditions']
     # find how much data we are dealing with
     n_pitches, n_frames = results.shape[0:2]
     n_lookat_targets, n_cam_positions = extrinsic_matrix.shape[0:2]
@@ -56,13 +61,30 @@ if __name__ == "__main__":
         raise IOError("The size of the output data (%s GB) exceeds the max limit on disk writes (%s GB)." %\
         (output_size_gb, MAX_GB_DISK))
     else:
+        grp_name = "projection_dat"
+        try:
+            group = DATA[grp_name]
+        except KeyError:
+            group = DATA.create_group(grp_name)
+
         ds_name = "final_projections"
         # prepare output dataset
-        delete_if_exists(ds_name)
-        dset = DATA.create_dataset(ds_name, 
-            shape = (n_pitches, n_cam_positions, n_lookat_targets, n_frames, 3), 
+        # delete_if_exists(ds_name, grp_name)
+        # dset = group.create_dataset(ds_name, 
+        #     shape = (n_pitches, n_cam_positions, n_lookat_targets, n_frames, 3), 
+        #     dtype=np.uint16)
+
+        #ds_name = ds_name
+        delete_if_exists(ds_name, grp_name)
+        dset = group.create_dataset(ds_name, 
+            shape = (n_pitches*n_cam_positions*n_lookat_targets, n_frames, 3), 
             dtype=np.uint16)
 
+        velos_name = "velocities"
+        delete_if_exists(velos_name, grp_name)
+        velocities = group.create_dataset(velos_name, 
+            shape = (n_pitches*n_cam_positions*n_lookat_targets,), 
+            dtype=np.float32)
         LOG.info("Dataset %s created in h5file %s. Approximately %s GB." % (ds_name, HDF5_NAME, output_size_gb))
 
     # size of an intermediate matrix for 1 pitch created by tensordot below
@@ -97,30 +119,47 @@ if __name__ == "__main__":
         LOG.info("Now processing pitches %s to %s" % (lbound_p, ubound_p))
         pitch_points = xy_to_xyz_homogenous(results[lbound_p:ubound_p,:,1:3])
 
-        for lbound_c, ubound_c in zip(chunk_bounds_cam[:-1], chunk_bounds_cam[1:]):
+        #for lbound_c, ubound_c in zip(chunk_bounds_cam[:-1], chunk_bounds_cam[1:]):
 
-            # this is where the ball is in "camera coordinate system" -- cam at origin & looking down z axis
-            # dot product of the pitch point and extrinsic matrix for frame and lookat in the selected cam_pos and pitches
-            camera_coordinates = np.tensordot(pitch_points, extrinsic_matrix[:,lbound_c:ubound_c,:,:], axes=([2],[3]))
+        # this is where the ball is in "camera coordinate system" -- cam at origin & looking down z axis
+        # dot product of the pitch point and extrinsic matrix for frame and lookat in the selected cam_pos and pitches
 
-            distances = np.linalg.norm(camera_coordinates, axis=4, ord=2).astype('uint16')
-            # actual length in meters on the camera sensor
-            xy = camera_coordinates[:,:,:,:,0:2] * (f / camera_coordinates[:,:,:,:,2, np.newaxis])
+        #camera_coordinates = np.tensordot(pitch_points, extrinsic_matrix[:,lbound_c:ubound_c,:,:], axes=([2],[3]))
+        camera_coordinates = np.tensordot(pitch_points, extrinsic_matrix[:,:,:,:], axes=([2],[3]))
 
-            # length in terms of percent of screen
-            pct_scr = xy / c_dim
+        distances = np.linalg.norm(camera_coordinates, axis=4, ord=2).astype('uint16')
+        # actual length in meters on the camera sensor
+        xy = camera_coordinates[:,:,:,:,0:2] * (f / camera_coordinates[:,:,:,:,2, np.newaxis])
 
-            relative_pixels_from_center = (pct_scr * resolution)
+        # length in terms of percent of screen
+        pct_scr = xy / c_dim
 
-            final = (relative_pixels_from_center + resolution/2).astype('uint16')
+        relative_pixels_from_center = (pct_scr * resolution)
 
-            # combine into one
-            # dset[lbound_p:ubound_p,lbound_c:ubound_c,:,:] =\
-            #  (((camera_coordinates[:,:,:,:,0:2] * (f / camera_coordinates[:,:,:,:,2, np.newaxis]) )\
-            #  / divider).astype('uint16') + (resolution/2)).swapaxes(1,3)
+        final = (relative_pixels_from_center + resolution/2).astype('uint16')
 
+        # combine into one
+        # dset[lbound_p:ubound_p,lbound_c:ubound_c,:,:] =\
+        #  (((camera_coordinates[:,:,:,:,0:2] * (f / camera_coordinates[:,:,:,:,2, np.newaxis]) )\
+        #  / divider).astype('uint16') + (resolution/2)).swapaxes(1,3)
 
-            dset[lbound_p:ubound_p,lbound_c:ubound_c,:,0:2] = final.swapaxes(1,3)
-            dset[lbound_p:ubound_p,lbound_c:ubound_c,:,2] = distances.swapaxes(1,3)
+        LOG.info("Now writing...")
+        #dset[lbound_p:ubound_p,lbound_c:ubound_c,:,:,0:2] = final.swapaxes(1,3)
+        #dset[lbound_p:ubound_p,lbound_c:ubound_c,:,:,2] = distances.swapaxes(1,3)
+        #dset[lbound_p:ubound_p,:,:,:,0:2] = final.swapaxes(1,3)
+        #dset[lbound_p:ubound_p,:,:,:,2] = distances.swapaxes(1,3)
 
+        #l_bound_3d = find_idx((lbound_p, lbound_c, 0), (n_pitches, n_cam_positions, n_lookat_targets))
+        #u_bound_3d = find_idx((ubound_p, ubound_c, n_lookat_targets-1), (n_pitches, n_cam_positions, n_lookat_targets))
+        l_bound_3d = int(lbound_p*n_cam_positions*n_lookat_targets)
+        u_bound_3d = int(ubound_p*n_cam_positions*n_lookat_targets)
+
+        #final = final.swapaxes(1,3).reshape(-1, n_frames, 2)
+        #distances = distances.swapaxes(1,3).reshape(-1, n_frames)
+
+        dset[l_bound_3d:u_bound_3d,:,0:2] = final.swapaxes(1,3).reshape(-1, n_frames, 2)
+        dset[l_bound_3d:u_bound_3d,:,2] = distances.swapaxes(1,3).reshape(-1, n_frames)
+
+        velocities[l_bound_3d:u_bound_3d] = np.repeat(results_conditions[lbound_p:ubound_p,2], n_cam_positions*n_lookat_targets)
+        LOG.info("Done writing.")
     LOG.info("Script Finished")
