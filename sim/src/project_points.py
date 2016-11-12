@@ -40,6 +40,8 @@ if __name__ == "__main__":
     extrinsic_matrix = DATA['extrinsic_matricies']
     results = DATA['trajectory_1']['ball_trajectories']
     results_conditions = DATA['trajectory_1']['initial_conditions']
+    camera_points = DATA['camera_points']
+    lookat_points = DATA['lookat_points']
     # find how much data we are dealing with
     n_pitches, n_frames = results.shape[0:2]
     n_lookat_targets, n_cam_positions = extrinsic_matrix.shape[0:2]
@@ -85,6 +87,15 @@ if __name__ == "__main__":
         velocities = group.create_dataset(velos_name, 
             shape = (n_pitches*n_cam_positions*n_lookat_targets,), 
             dtype=np.float32)
+
+        info_name = "info"
+        delete_if_exists(info_name, grp_name)
+        info = group.create_dataset(info_name, 
+            shape = (n_pitches*n_cam_positions*n_lookat_targets, results_conditions.shape[1] + camera_points.shape[1] + lookat_points.shape[1]), 
+            dtype=np.float32)
+
+        info[:,4:7] =  np.vstack([np.repeat(camera_points, n_lookat_targets, axis=0)]*n_pitches)
+        info[:,7:] = np.vstack([lookat_points]*(n_pitches*n_cam_positions))  
         LOG.info("Dataset %s created in h5file %s. Approximately %s GB." % (ds_name, HDF5_NAME, output_size_gb))
 
     # size of an intermediate matrix for 1 pitch created by tensordot below
@@ -134,6 +145,8 @@ if __name__ == "__main__":
         # length in terms of percent of screen
         pct_scr = xy / c_dim
 
+        # this will set position to 0,0 if off screen
+        pct_scr[np.abs(pct_scr) > .5] = -.5
         relative_pixels_from_center = (pct_scr * resolution)
 
         final = (relative_pixels_from_center + resolution/2).astype('uint16')
@@ -161,5 +174,7 @@ if __name__ == "__main__":
         dset[l_bound_3d:u_bound_3d,:,2] = distances.swapaxes(1,3).reshape(-1, n_frames)
 
         velocities[l_bound_3d:u_bound_3d] = np.repeat(results_conditions[lbound_p:ubound_p,2], n_cam_positions*n_lookat_targets)
+        info[l_bound_3d:u_bound_3d,0:4] = np.repeat(results_conditions[lbound_p:ubound_p,:], n_cam_positions*n_lookat_targets, axis=0)
+
         LOG.info("Done writing.")
     LOG.info("Script Finished")
